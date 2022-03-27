@@ -10,11 +10,12 @@ set expandtab
 set shiftwidth=2
 set smarttab
 set termguicolors
+set nowrap
 
-highlight Pmenu 		    ctermbg=gray 		guibg=gray		guifg=white
+highlight Pmenu 		ctermbg=gray 	guibg=gray	    guifg=white
 highlight PmenuSel 	    ctermbg=white 	guibg=cyan		guifg=black
-highlight CursorLineNr  cterm=NONE      ctermbg=NONE  ctermfg=NONE    guibg=NONE    guifg=#55ffff
-highlight CursorLine    cterm=NONE      ctermbg=NONE  ctermfg=NONE    guibg=#282a36 guifg=NONE
+highlight CursorLineNr  cterm=NONE      ctermbg=NONE    ctermfg=NONE    guibg=NONE    guifg=#55ffff
+highlight CursorLine    cterm=NONE      ctermbg=NONE    ctermfg=NONE    guibg=#282a36 guifg=NONE
 
 set cursorline
 
@@ -34,12 +35,14 @@ Plug 'Townk/vim-autoclose'                          " auto close bracket
 Plug 'voldikss/vim-floaterm'                        " floating terminal
 Plug 'neoclide/coc.nvim', {'branch': 'release'}     " coc language server
 Plug 'cdelledonne/vim-cmake'
+Plug 'mfussenegger/nvim-dap'
 Plug 'terrortylor/nvim-comment'                     " commenter
 Plug 'octol/vim-cpp-enhanced-highlight'             " C++ Better highlight
 Plug 'roblillack/vim-bufferlist'                    " Vim bufferlist
 Plug 'terryma/vim-multiple-cursors'                 " Multiple cursors
 Plug 'rbong/vim-flog'                               " Git branch history
 Plug 'tpope/vim-fugitive'
+Plug 'nvim-lua/plenary.nvim'
 
 call plug#end()
 
@@ -220,6 +223,20 @@ require('nvim_comment').setup()
 
 require('neoscroll').setup()
 
+local t = {}
+-- Syntax: t[keys] = {function, {function arguments}}
+t['<C-u>'] = {'scroll', {'-vim.wo.scroll', 'true', '70', [['ease-in-out']]}}
+t['<C-d>'] = {'scroll', { 'vim.wo.scroll', 'true', '70', [['ease-in-out']]}}
+t['<C-b>'] = {'scroll', {'-vim.api.nvim_win_get_height(0)', 'true', '100', [['ease-in-out']]}}
+t['<C-f>'] = {'scroll', { 'vim.api.nvim_win_get_height(0)', 'true', '100', [['ease-in-out']]}}
+t['<C-y>'] = {'scroll', {'-0.50', 'false', '100'}}
+t['<C-e>'] = {'scroll', { '0.50', 'false', '100'}}
+t['zt']    = {'zt', {'100'}}
+t['zz']    = {'zz', {'100'}}
+t['zb']    = {'zb', {'100'}}
+
+require('neoscroll.config').set_mappings(t)
+
 local autosave = require("autosave")
 
 autosave.setup(
@@ -390,12 +407,12 @@ gls.left[1] = {
   ViMode = {
     provider = function()
       local alias = {
-        n = 		' 煉NORMAL',
+        n = 		'  NORMAL',
         i = 		'  INSERT',
         c = 		'  COMMAND',
-        V = 		' 揄VISUAL LINE',
-        [''] = 	' 揄VISUAL BLOCK',
-        v = 		' 揄VISUAL',
+        V = 		' 﫦 VISUAL LINE',
+        [''] = 	' 﫦 VISUAL BLOCK',
+        v = 		' 﫦 VISUAL',
         R = 		'  REPLACE'
       }
       vim.api.nvim_command('hi GalaxyViMode guifg=' .. mode_color())
@@ -506,8 +523,45 @@ require('bufferline').setup {
 	}
 }
 
+local dap = require('dap')
+
+dap.adapters.cppdbg = {
+  id = 'cppdbg',
+  type = 'executable',
+  command = 'C:/Users/vnvna/AppData/Local/nvim/cpp-tools/extension/debugAdapters/bin/OpenDebugAD7.exe',
+}
+
+dap.configurations.cpp = {
+  {
+    name = "Launch file",
+    type = "cppdbg",
+    request = "launch",
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = true,
+  },
+  {
+    name = 'Attach to gdbserver :1234',
+    type = 'cppdbg',
+    request = 'launch',
+    MIMode = 'gdb',
+    miDebuggerServerAddress = 'localhost:1234',
+    miDebuggerPath = '/usr/bin/gdb',
+    cwd = '${workspaceFolder}',
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+  },
+}
+
+dap.configurations.c = dap.configurations.cpp
+dap.configurations.rust = dap.configurations.cpp
+
 EOF
 
+let g:cmake_generate_options=['-G', 'Ninja']
 let g:cmake_link_compile_commands=1
 let g:cmake_build_dir_location='./build'
 
@@ -518,10 +572,10 @@ let g:nvim_tree_root_folder_modifier = ':~'
 let g:nvim_tree_add_trailing = 1 
 let g:nvim_tree_group_empty = 1 
 let g:nvim_tree_icon_padding = ' ' 
-let g:nvim_tree_symlink_arrow = ' >> ' 
+let g:nvim_tree_symlink_arrow = ' -> ' 
 let g:nvim_tree_respect_buf_cwd = 1 
 let g:nvim_tree_create_in_closed_folder = 1
-let g:nvim_tree_special_files = { 'README.md': 1, 'Makefile': 1, 'MAKEFILE': 1 } 
+let g:nvim_tree_special_files = { 'README.md': 1, 'Makefile': 1, 'MAKEFILE': 1, 'CMakeLists.txt': 1, 'README.MD': 1 } 
 let g:nvim_tree_show_icons = {
     \ 'git': 1,
     \ 'folders': 0,
@@ -563,14 +617,20 @@ nnoremap <leader>cg     :CMakeGenerate<CR>
 nnoremap <leader>cb     :CMakeBuild<CR>
 nnoremap <leader>cc     :CMakeClean<CR>
 nnoremap <leader>gbh    :Flogsplit<CR>
-nnoremap <C-Up>         <C-w>10+
-nnoremap <C-Down>       <C-w>10-
-nnoremap <C-Left>       <C-w>10<
-nnoremap <C-Right>      <C-w>10>
+nnoremap <C-Up>         <C-w>5+
+nnoremap <C-Down>       <C-w>5-
+nnoremap <C-Left>       <C-w>5<
+nnoremap <C-Right>      <C-w>5>
 nnoremap <A-Up>         <C-w>k
 nnoremap <A-Down>       <C-w>j 
 nnoremap <A-Left>       <C-w>h 
 nnoremap <A-Right>      <C-w>l 
+
+noremap <C-z>           <ESC>
+noremap <F5>            :lua require'dap'.toggle_breakpoint()<CR>
+noremap <F10>           :lua require'dap'.continue()<CR>
+noremap <F8>            :lua require'dap'.step_over()<CR>
+noremap <F9>            :lua require'dap'.step_into()<CR>
 
 tnoremap <C-z>          <C-\><C-n>
 
@@ -578,3 +638,8 @@ inoremap <A-j>          <ESC>j
 inoremap <A-k>          <ESC>k
 inoremap <A-l>          <ESC>l 
 inoremap <A-h>          <ESC>h 
+inoremap <C-z>          <ESC>
+
+vnoremap <C-z>          <ESC>
+
+noremap <C-V>           <C-v>
